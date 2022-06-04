@@ -1,0 +1,9 @@
+#curveland {
+    margin: 0px 0px;
+}
+
+html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden;
+}
