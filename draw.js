@@ -14,6 +14,7 @@ let curMode = modes[modeIndex];
 var randomCounter = 0;
 
 const Bstep = 0.005;
+const Cstep = 2;
 const Tstep = 4;
 
 let drawing = false;
@@ -27,10 +28,15 @@ let otherDog;
 let otherOwner;
 let otherDir;
 
-let initialOwner;
 
 let r;
-let startPt;
+let cycPt;
+let center;
+
+let otherCycPt;
+let otherCenter;
+
+
 
 function drawPoly(points, transparent = false) {
     for (let i = 0; i < points.length - 1; i++) {
@@ -186,6 +192,16 @@ function tractrixNext(pull, follow, direct) {
 
 }
 
+function cycloidNext(center, point, direct) {
+    let d = getDir(center, point);
+    let vecToCenter = getDir(points[0], center);
+    let rotation = Cstep / r * Math.sign(Math.atan2(vecToCenter.x * direct.y - vecToCenter.y * direct.x, vecToCenter.x * direct.x + vecToCenter.y + direct.y));
+    center.x += (direct.x * Cstep);
+    center.y += (direct.y * Cstep);
+    let newPt = new Point(center.x + Math.cos(rotation) * d.x * r - Math.sin(rotation) * d.y * r, center.y + Math.sin(rotation) * d.x * r + Math.cos(rotation) * d.y * r);
+    return [center, newPt, new Point(newPt.x - point.x, newPt.y - point.y)];
+}
+
 window.onresize = resetCanvas;
 
 resetCanvas();
@@ -223,15 +239,13 @@ canvas.onclick = function(event) {
                     }
 
                     if (points.length == 3) {
-                        dog = points[2];
-                        owner = points[0];
+                        dog = new Point(points[2].x, points[2].y);
+                        owner = new Point(points[0].x, points[0].y);
                         dir = getDir(points[0], points[1]);
 
                         otherDog = new Point(dog.x, dog.y);
                         otherOwner = new Point(owner.x, owner.y);
                         otherDir = getDir(points[1], points[0]);
-
-                        initialOwner = new Point(owner.x, owner.y);
                     }
                 }
                 break;
@@ -246,6 +260,9 @@ canvas.onclick = function(event) {
                             ctx.setLineDash([15, 5]);
                             drawLine(points[0], points[1]);
                             drawPt(event.x, event.y, 5);
+
+                            dir = getDir(points[0], points[1])
+                            otherDir = getDir(points[1], points[0]);
                         }
 
                         else if (points.length == 3) {
@@ -254,6 +271,9 @@ canvas.onclick = function(event) {
                             ctx.setLineDash([0]);
                             ctx.arc(points[2].x, points[2].y, r, 0, 2 * Math.PI);
                             ctx.stroke();
+
+                            center = new Point(points[2].x, points[2].y);
+                            otherCenter = new Point(points[2].x, points[2].y);
                         }
 
                         drawPt(points[points.length - 1].x, points[points.length - 1].y, 5);
@@ -261,8 +281,9 @@ canvas.onclick = function(event) {
 
                     else if (points.length == 3) {
                         let dirToClick = getDir(points[2], new Point(event.x, event.y));
-                        startPt = new Point(points[2].x + dirToClick.x * r, points[2].y + dirToClick.y * r);
-                        points.push(startPt);
+                        cycPt = new Point(points[2].x + dirToClick.x * r, points[2].y + dirToClick.y * r);
+                        otherCycPt = new Point(points[2].x + dirToClick.x * r, points[2].y + dirToClick.y * r);
+                        points.push(cycPt);
                         drawPt(points[points.length - 1].x, points[points.length - 1].y, 5);
                     }
                     
@@ -323,7 +344,7 @@ function Tframe() {
     ctx.beginPath();
     ctx.setLineDash([15, 5]);
     ctx.strokeStyle = "black";
-    drawLine(initialOwner, points[1]);
+    drawLine(points[0], points[1]);
 
 
     ctx.beginPath();
@@ -353,13 +374,66 @@ function Tframe() {
 
 
  
-    if (randomCounter % 10 == 0 && randomCounter != 0) {
+    if (randomCounter % 5 == 0 && randomCounter != 0) {
         normals.push([new Point(dog.x, dog.y), new Point(dog.x - newPts[2].y, dog.y + newPts[2].x)]);
         normals.unshift([new Point(otherDog.x, otherDog.y), new Point(otherDog.x - newOtherPts[2].y, otherDog.y + newOtherPts[2].x)]);
     }
     randomCounter++; 
     curFrame = window.requestAnimationFrame(Tframe);
 }
+
+function Cframe() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawPoly(curveNodes.slice(0, Math.floor(curveNodes.length/2)), transparent = true);
+    drawPoly(curveNodes.slice(Math.floor(curveNodes.length/2) - 1, curveNodes.length));
+
+    drawNormals();
+
+    ctx.beginPath();
+    ctx.setLineDash([15, 5]);
+    ctx.strokeStyle = "black";
+    drawLine(points[0], points[1]);
+
+    
+
+
+    let newPts = cycloidNext(center, cycPt, dir);
+    center = newPts[0];
+    cycPt = newPts[1];
+
+    let newOtherPts = cycloidNext(otherCenter, otherCycPt, otherDir);
+    otherCenter = newOtherPts[0];
+    otherCycPt = newOtherPts[1];
+
+    curveNodes.unshift(otherCycPt);
+
+
+
+    drawPt(center.x, center.y, 5);
+    drawPt(cycPt.x, cycPt.y, 5);
+
+    ctx.beginPath();
+    ctx.setLineDash([0]);
+    ctx.arc(center.x, center.y, r, 0, 2 * Math.PI);
+    ctx.stroke();
+    
+    curveNodes.push(cycPt);
+    
+    if (randomCounter == 0) {
+        normals.push([new Point(cycPt.x, cycPt.y), new Point(cycPt.x - newPts[2].y, cycPt.y + newPts[2].x)]);
+    }
+
+
+ 
+    if (randomCounter % 5 == 0 && randomCounter != 0) {
+        normals.push([new Point(cycPt.x, cycPt.y), new Point(cycPt.x - newPts[2].y, cycPt.y + newPts[2].x)]);
+        normals.unshift([new Point(otherCycPt.x, otherCycPt.y), new Point(otherCycPt.x - newOtherPts[2].y, otherCycPt.y + newOtherPts[2].x)]);
+    }
+    randomCounter++;
+    curFrame = window.requestAnimationFrame(Cframe);
+}
+
+
 
 window.onkeydown = function(event) {
     if (event.key == " ") {
@@ -379,6 +453,14 @@ window.onkeydown = function(event) {
                         Tframe();
                     }
                     break;
+                
+                case "c":
+                    if (points.length == 4) {
+                        drawing = true;
+                        Cframe();
+                    }
+
+                    break;
             }
         }
 
@@ -397,6 +479,10 @@ window.onkeydown = function(event) {
                     
                     case "t":
                         Tframe();
+                        break;
+                    
+                    case "c":
+                        Cframe();
                         break;
                 }
             }
