@@ -1,8 +1,9 @@
 /** @type {HTMLCanvasElement} */
 let canvas = document.getElementById("curveland")
 var ctx = canvas.getContext("2d")
+
 let points = []
-let modes = ["b", "t", "c", "p"];
+let modes = ["b", "c", "t", "p"];
 
 let curveNodes = [];
 let normals = [];
@@ -226,9 +227,9 @@ function Bframe() {
         ctx.moveTo(curveNodes[curveNodes.length - 2].x, curveNodes[curveNodes.length - 2].y);
         ctx.lineTo(curveNodes[curveNodes.length - 1].x, curveNodes[curveNodes.length - 1].y);
         ctx.stroke();
-        return
+        return;
     }
-    i += Bstep
+    i += Bstep;
     curFrame = window.requestAnimationFrame(Bframe);
 }
 
